@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>STEFANS TIC-TAC-TOE-ZENTRALE</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #120a1f;
+            --panel-bg: #1c1130;
+            --accent-gold: #f39c12;
+            --accent-orange: #e67e22;
+            --text-main: #f0e6ff;
+            --text-muted: #e67e22;
+            --board-lines: #332159;
+            --cell-bg: #160d26;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 10px;
+            overflow-x: hidden;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            margin: 10px 0;
+            color: var(--accent-gold);
+            text-align: center;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .screen {
+            display: none;
+            width: 100%;
+            max-width: 480px;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .card {
+            background-color: var(--panel-bg);
+            border: 1px solid #332159;
+            border-radius: 16px;
+            padding: 16px;
+            width: 100%;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            text-align: center;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-orange));
+            color: #120a1f;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 18px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.4);
+            transition: transform 0.1s, filter 0.2s;
+            width: 100%;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+            filter: brightness(0.9);
+        }
+
+        .btn-secondary {
+            background: #2c1a4d;
+            color: var(--text-muted);
+            border: 1px solid var(--accent-orange);
+            box-shadow: none;
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            background: #120a1f;
+            border: 2px solid #332159;
+            border-radius: 10px;
+            color: var(--text-muted);
+            font-size: 1rem;
+            text-align: center;
+            outline: none;
+        }
+        input[type="text"]:focus, select:focus {
+            border-color: var(--accent-gold);
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-align: left;
+            margin-bottom: -4px;
+            font-weight: bold;
+        }
+
+        .status-bar {
+            background-color: var(--panel-bg);
+            border: 1px solid #332159;
+            border-radius: 12px;
+            padding: 8px 12px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-muted);
+            font-weight: bold;
+        }
+
+        .symbol-badge {
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        /* SPIELFELDER */
+        .board-wrapper {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            max-width: 380px;
+            background-color: var(--panel-bg);
+            border: 3px solid var(--accent-orange);
+            border-radius: 16px;
+            padding: 10px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 8px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+            position: relative;
+        }
+
+        .cell {
+            background-color: var(--cell-bg);
+            border: 2px solid var(--board-lines);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.6rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .cell:active { transform: scale(0.95); }
+        .cell.x { color: #e74c3c; text-shadow: 0 0 10px rgba(231, 76, 60, 0.4); }
+        .cell.o { color: #3498db; text-shadow: 0 0 10px rgba(52, 152, 219, 0.4); }
+
+        /* ULTIMATE TIC TAC TOE CONTAINER */
+        .ultimate-container {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            max-width: 380px;
+            background-color: var(--panel-bg);
+            border: 3px solid var(--accent-orange);
+            border-radius: 16px;
+            padding: 6px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 6px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+        }
+
+        .mini-board {
+            background-color: var(--cell-bg);
+            border: 2px solid var(--board-lines);
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 3px;
+            padding: 3px;
+            position: relative;
+        }
+        .mini-board.active-board {
+            border-color: var(--accent-gold);
+            background-color: #1f1136;
+            box-shadow: 0 0 10px rgba(243, 156, 18, 0.3);
+        }
+        .mini-board.won-x::after {
+            content: "X";
+            position: absolute;
+            inset: 0;
+            background: rgba(28, 17, 48, 0.9);
+            color: #e74c3c;
+            font-size: 3rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+        }
+        .mini-board.won-o::after {
+            content: "O";
+            position: absolute;
+            inset: 0;
+            background: rgba(28, 17, 48, 0.9);
+            color: #3498db;
+            font-size: 3rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+        }
+
+        .mini-cell {
+            background-color: #120a1f;
+            border: 1px solid #281842;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .mini-cell.x { color: #e74c3c; }
+        .mini-cell.o { color: #3498db; }
+
+        /* CHAT BEREICH & BUBBLE */
+        .chat-container {
+            background-color: var(--panel-bg);
+            border: 1px solid #332159;
+            border-radius: 12px;
+            padding: 6px 10px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            position: relative;
+        }
+
+        .emoji-row {
+            display: flex;
+            justify-content: space-around;
+            font-size: 1.2rem;
+        }
+
+        .emoji-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 2px;
+            transition: transform 0.1s;
+        }
+        .emoji-btn:active { transform: scale(1.3); }
+
+        .chat-input-row {
+            display: flex;
+            gap: 6px;
+        }
+
+        .chat-input-row input {
+            text-align: left;
+            padding: 6px 10px;
+            font-size: 0.85rem;
+            border-radius: 8px;
+        }
+
+        .chat-send-btn {
+            background: #2c1a4d;
+            border: 1px solid var(--accent-orange);
+            color: var(--accent-orange);
+            padding: 0 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        /* Chat-Nachricht platziert sich direkt über dem Eingabebereich */
+        #chat-bubble {
+            background: rgba(28, 17, 48, 0.95);
+            border: 2px solid var(--accent-gold);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            width: 100%;
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>STEFANS TIC-TAC-TOE-ZENTRALE</h1>
+
+    <!-- HAUPTMENÜ -->
+    <div id="screen-main-menu" class="screen active">
+        <div class="card">
+            <h2 style="color: var(--accent-gold); font-size: 1.1rem;">Spieler-Profil</h2>
+            <label>Dein Name:</label>
+            <input type="text" id="player-name-input" value="Stefan" placeholder="Name eingeben...">
+        </div>
+
+        <div class="card">
+            <h2 style="color: var(--accent-gold); font-size: 1.1rem;">Spielmodus wählen</h2>
+            <button class="btn" onclick="openModeConfig('classic')">🎮 Klassik (3x3)</button>
+            <button class="btn" onclick="openModeConfig('evolution')">⏳ Evolution (Verfall-Modus)</button>
+            <button class="btn" onclick="openModeConfig('ultimate')">🏆 Ultimate Tic Tac Toe</button>
+        </div>
+    </div>
+
+    <!-- MODUS KONFIGURATION -->
+    <div id="screen-mode-config" class="screen">
+        <div class="card">
+            <h3 id="config-title" style="color: var(--accent-gold); font-size: 1.1rem;">Modus einstellen</h3>
+            
+            <label>Gegner wählen:</label>
+            <select id="opponent-type" onchange="toggleOpponentSettings()">
+                <option value="ai">Gegen KI (Computer)</option>
+                <option value="online">Online-Duell (P2P Link)</option>
+            </select>
+
+            <div id="ai-settings" style="display: flex; flex-direction: column; gap: 8px;">
+                <label>Schwierigkeitsgrad:</label>
+                <select id="ai-difficulty">
+                    <option value="easy">Leicht (Zufällig)</option>
+                    <option value="medium">Mittel (Taktisch)</option>
+                    <option value="hard">Schwer (Unschlagbar)</option>
+                </select>
+                <button class="btn" onclick="startSingleplayerGame()">Einzelspiel starten</button>
+            </div>
+
+            <div id="online-settings" style="display: none; flex-direction: column; gap: 8px;">
+                <label>Dein Raumcode:</label>
+                <input type="text" id="room-code-input" value="stefan42">
+                <button class="btn" onclick="startHosting()">Raum erstellen & Link kopieren</button>
+                <p id="host-status" style="font-size: 0.8rem; color: var(--accent-gold);"></p>
+                <p id="room-link-display" style="font-size: 0.75rem; color: var(--text-main); word-break: break-all; background: #120a1f; padding: 6px; border-radius: 6px;"></p>
+                
+                <hr style="border: 0; border-top: 1px solid #332159; margin: 4px 0;">
+                
+                <label>Oder beitreten:</label>
+                <input type="text" id="join-code-input" placeholder="Raumcode eingeben...">
+                <button class="btn btn-secondary" onclick="joinGame()">Beitreten (Gast)</button>
+                <p id="join-status" style="font-size: 0.8rem; color: var(--accent-gold);"></p>
+            </div>
+
+            <button class="btn btn-secondary" style="margin-top: 6px;" onclick="showScreen('screen-main-menu')">Zurück</button>
+        </div>
+    </div>
+
+    <!-- SPIELBILDSCHIRM -->
+    <div id="screen-game" class="screen">
+        <div class="status-bar">
+            <div class="player-info">
+                <div class="symbol-badge" style="background: rgba(231,76,60,0.2); color: #e74c3c;">X</div>
+                <span id="p1-text">Spieler X</span>
+            </div>
+            <div id="game-mode-badge" style="font-weight: bold; color: var(--accent-gold); font-size: 0.75rem;">Modus</div>
+            <div class="player-info">
+                <div class="symbol-badge" style="background: rgba(52,152,219,0.2); color: #3498db;">O</div>
+                <span id="p2-text">Spieler O</span>
+            </div>
+        </div>
+
+        <div id="game-board-container" style="width: 100%; display: flex; justify-content: center; position: relative;"></div>
+
+        <div id="turn-indicator" style="font-size: 1rem; font-weight: bold; color: var(--accent-orange); text-align: center; min-height: 22px;">
+            Am Zug
+        </div>
+
+        <!-- CHAT BEREICH (Chat-Nachricht direkt über den Eingabefeldern) -->
+        <div id="chat-section" class="chat-container">
+            <div id="chat-bubble">Nachricht...</div>
+            <div class="emoji-row">
+                <button class="emoji-btn" onclick="sendChatMessage('👍')">👍</button>
+                <button class="emoji-btn" onclick="sendChatMessage('😂')">😂</button>
+                <button class="emoji-btn" onclick="sendChatMessage('🤔')">🤔</button>
+                <button class="emoji-btn" onclick="sendChatMessage('🔥')">🔥</button>
+            </div>
+            <div class="chat-input-row">
+                <input type="text" id="chat-msg-input" placeholder="Nachricht..." maxlength="40" onkeydown="if(event.key==='Enter') sendCustomChat()">
+                <button class="chat-send-btn" onclick="sendCustomChat()">Senden</button>
+            </div>
+        </div>
+
+        <button id="restart-btn" class="btn" style="display:none; background: linear-gradient(135deg, #27ae60, #2ecc71); color: #fff;" onclick="triggerRestart()">🔄 Nochmal spielen</button>
+        <button class="btn btn-secondary" style="padding: 8px; font-size: 0.85rem;" onclick="confirmLeaveGame()">Spiel verlassen / Menü</button>
+    </div>
+
+    <script>
+        let playerName = "Stefan";
+        let selectedGameMode = "classic";
+        let isVsAI = true;
+        let aiDifficulty = "hard";
+        let peer = null;
+        let conn = null;
+
+        let isMultiplayer = false;
+        let myPlayerRole = 'X';
+        let gameTurn = 'X';
+        let gameNames = { 'X': 'Stefan', 'O': 'Gegner' };
+        let gameState = {};
+        let audioCtx = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomParam = urlParams.get('room');
+            const modeParam = urlParams.get('mode');
+            if (roomParam) {
+                if (modeParam) selectedGameMode = modeParam;
+                isVsAI = false;
+                const joinInput = document.getElementById('room-code-input');
+                const joinCodeInput = document.getElementById('join-code-input');
+                if (joinInput) joinInput.value = roomParam;
+                if (joinCodeInput) joinCodeInput.value = roomParam;
+                
+                showScreen('screen-mode-config');
+                document.getElementById('opponent-type').value = 'online';
+                toggleOpponentSettings();
+                setTimeout(() => joinOnlineGame(), 500);
+            }
+        });
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSound(type) {
+            try {
+                initAudio();
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                if (type === 'click') {
+                    osc.frequency.setValueAtTime(500, now);
+                    osc.frequency.exponentialRampToValueAtTime(200, now + 0.05);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.06);
+                } else if (type === 'win') {
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.setValueAtTime(450, now + 0.1);
+                    osc.frequency.setValueAtTime(600, now + 0.2);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.4);
+                }
+            } catch(e) {}
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            playerName = document.getElementById('player-name-input').value.trim() || "Stefan";
+        }
+
+        function confirmLeaveGame() {
+            if (confirm("Spiel wirklich beenden?")) {
+                if (conn) try { conn.close(); } catch(e) {}
+                showScreen('screen-main-menu');
+            }
+        }
+
+        function openModeConfig(mode) {
+            selectedGameMode = mode;
+            document.getElementById('config-title').innerText = `Modus: ${mode.toUpperCase()}`;
+            showScreen('screen-mode-config');
+        }
+
+        function toggleOpponentSettings() {
+            const val = document.getElementById('opponent-type').value;
+            if (val === 'ai') {
+                document.getElementById('ai-settings').style.display = 'flex';
+                document.getElementById('online-settings').style.display = 'none';
+            } else {
+                document.getElementById('ai-settings').style.display = 'none';
+                document.getElementById('online-settings').style.display = 'flex';
+            }
+        }
+
+        function startSingleplayerGame() {
+            initAudio();
+            isVsAI = true;
+            isMultiplayer = false;
+            aiDifficulty = document.getElementById('ai-difficulty').value;
+            gameNames['X'] = playerName;
+            gameNames['O'] = `KI (${aiDifficulty.toUpperCase()})`;
+            document.getElementById('chat-section').style.display = 'none';
+            startGameInstance();
+        }
+
+        function startHosting() {
+            initAudio();
+            isVsAI = false;
+            isMultiplayer = true;
+            myPlayerRole = 'X';
+            const FIXED_ROOM_CODE = document.getElementById('room-code-input').value.trim() || "stefan42";
+
+            if (window.peer) window.peer.destroy();
+            
+            const peer = new Peer('stefan-ttt-' + selectedGameMode + '-' + FIXED_ROOM_CODE);
+            window.peer = peer;
+
+            peer.on('open', (id) => {
+                const webBaseUrl = "https://swi64.github.io/TicTacToe-Zentrale/"; 
+                
+                const baseUrl = window.location.protocol.startsWith('http') && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+                    ? window.location.origin + window.location.pathname 
+                    : webBaseUrl;
+
+                const fullLink = baseUrl + '?room=' + FIXED_ROOM_CODE + '&mode=' + selectedGameMode;
+                
+                document.getElementById('room-link-display').innerText = fullLink;
+                document.getElementById('host-status').innerText = 'Warte auf Mitspieler im Raum: ' + FIXED_ROOM_CODE;
+                
+                navigator.clipboard.writeText(fullLink).then(() => {
+                    alert('Einladungs-Link kopiert! Kann direkt verschickt werden.');
+                }).catch(() => {});
+            });
+
+            peer.on('error', (e) => {
+                document.getElementById('host-status').innerText = 'Fehler (Raum vergeben?): ' + e.type;
+            });
+
+            peer.on('connection', (connection) => {
+                conn = connection;
+                setupConnectionListeners();
+                conn.on('open', () => {
+                    gameNames['X'] = playerName;
+                    conn.send(JSON.stringify({ type: 'name', name: playerName }));
+                    startGameInstance();
+                });
+            });
+        }
+
+        function joinGame() {
+            const code = document.getElementById('join-code-input').value.trim();
+            if (!code) return alert('Bitte Raumcode eingeben!');
+            joinOnlineGame();
+        }
+
+        function joinOnlineGame() {
+            initAudio();
+            isVsAI = false;
+            isMultiplayer = true;
+            myPlayerRole = 'O';
+            const FIXED_ROOM_CODE = document.getElementById('join-code-input').value.trim() || document.getElementById('room-code-input').value.trim();
+            
+            document.getElementById('join-status').innerText = 'Verbinde...';
+            if (window.peer) window.peer.destroy();
+
+            const peer = new Peer();
+            window.peer = peer;
+
+            peer.on('open', () => {
+                conn = peer.connect('stefan-ttt-' + selectedGameMode + '-' + FIXED_ROOM_CODE, { reliable: true });
+                setupConnectionListeners();
+                conn.on('open', () => {
+                    gameNames['O'] = playerName;
+                    conn.send(JSON.stringify({ type: 'name', name: playerName }));
+                    startGameInstance();
+                });
+            });
+
+            peer.on('error', () => {
+                document.getElementById('join-status').innerText = 'Verbindung fehlgeschlagen!';
+            });
+        }
+
+        function setupConnectionListeners() {
+            conn.on('data', (raw) => {
+                try {
+                    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                    if (data.type === 'action') {
+                        gameState = data.state;
+                        gameTurn = data.turn;
+                        renderGame();
+                    } else if (data.type === 'name') {
+                        const opp = myPlayerRole === 'X' ? 'O' : 'X';
+                        gameNames[opp] = data.name;
+                        updateUI();
+                    } else if (data.type === 'chat') {
+                        showChatBubble(data.name + ": " + data.text);
+                    }
+                } catch(e) {}
+            });
+            conn.on('close', () => {
+                alert('Verbindung getrennt.');
+                showScreen('screen-main-menu');
+            });
+        }
+
+        function sendState() {
+            if (isMultiplayer && conn && conn.open) {
+                conn.send(JSON.stringify({ type: 'action', state: gameState, turn: gameTurn }));
+            }
+        }
+
+        function startGameInstance() {
+            showScreen('screen-game');
+            document.getElementById('chat-section').style.display = isVsAI ? 'none' : 'flex';
+            document.getElementById('game-mode-badge').innerText = selectedGameMode.toUpperCase();
+            initBoardState();
+            renderGame();
+        }
+
+        function triggerRestart() {
+            initBoardState();
+            renderGame();
+            if (isMultiplayer) sendState();
+            if (isVsAI && gameTurn === 'O') setTimeout(makeAIMove, 400);
+        }
+
+        function sendChatMessage(txt) {
+            showChatBubble(playerName + ": " + txt);
+            if (isMultiplayer && conn && conn.open) conn.send(JSON.stringify({ type: 'chat', name: playerName, text: txt }));
+        }
+        function sendCustomChat() {
+            const inp = document.getElementById('chat-msg-input');
+            const txt = inp.value.trim();
+            if (!txt) return;
+            inp.value = '';
+            sendChatMessage(txt);
+        }
+        
+        let bubbleTimer = null;
+        function showChatBubble(msg) {
+            const b = document.getElementById('chat-bubble');
+            b.innerText = msg;
+            b.style.opacity = '1';
+            if (bubbleTimer) clearTimeout(bubbleTimer);
+            bubbleTimer = setTimeout(() => { b.style.opacity = '0'; }, 3500);
+        }
+
+        function initBoardState() {
+            gameTurn = 'X';
+            if (selectedGameMode === 'classic') {
+                gameState = { board: Array(9).fill(null), winner: null };
+            } else if (selectedGameMode === 'evolution') {
+                gameState = { board: Array(9).fill(null), historyX: [], historyO: [], winner: null };
+            } else if (selectedGameMode === 'ultimate') {
+                gameState = {
+                    boards: Array(9).fill(0).map(() => Array(9).fill(null)),
+                    boardWinners: Array(9).fill(null),
+                    activeBoard: -1,
+                    winner: null
+                };
+            }
+        }
+
+        function renderGame() {
+            updateUI();
+            const container = document.getElementById('game-board-container');
+            container.innerHTML = '';
+
+            if (selectedGameMode === 'classic' || selectedGameMode === 'evolution') {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'board-wrapper';
+                gameState.board.forEach((val, idx) => {
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${val ? val.toLowerCase() : ''}`;
+                    cell.innerText = val || '';
+                    cell.onclick = () => handleCellClick(idx);
+                    wrapper.appendChild(cell);
+                });
+                container.appendChild(wrapper);
+            } 
+            else if (selectedGameMode === 'ultimate') {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'ultimate-container';
+
+                gameState.boards.forEach((miniBoard, bIdx) => {
+                    const mBoardDiv = document.createElement('div');
+                    const bWinner = gameState.boardWinners[bIdx];
+                    
+                    let boardClass = 'mini-board';
+                    if (bWinner) {
+                        boardClass += bWinner === 'X' ? ' won-x' : ' won-o';
+                    } else if (gameState.activeBoard === -1 || gameState.activeBoard === bIdx) {
+                        boardClass += ' active-board';
+                    }
+                    mBoardDiv.className = boardClass;
+
+                    miniBoard.forEach((cellVal, cIdx) => {
+                        const mCell = document.createElement('div');
+                        mCell.className = `mini-cell ${cellVal ? cellVal.toLowerCase() : ''}`;
+                        mCell.innerText = cellVal || '';
+                        mCell.onclick = () => handleUltimateClick(bIdx, cIdx);
+                        mBoardDiv.appendChild(mCell);
+                    });
+                    wrapper.appendChild(mBoardDiv);
+                });
+                container.appendChild(wrapper);
+            }
+        }
+
+        function handleCellClick(idx) {
+            if (gameState.winner || gameState.board[idx] !== null) return;
+            if (isMultiplayer && gameTurn !== myPlayerRole) return;
+            if (isVsAI && gameTurn === 'O') return;
+
+            executeMove(idx);
+        }
+
+        function executeMove(idx) {
+            playSound('click');
+            if (selectedGameMode === 'classic') {
+                gameState.board[idx] = gameTurn;
+                if (checkWinnerClassic(gameState.board)) {
+                    gameState.winner = gameTurn;
+                    playSound('win');
+                } else if (gameState.board.every(c => c !== null)) {
+                    gameState.winner = 'Remis';
+                } else {
+                    gameTurn = gameTurn === 'X' ? 'O' : 'X';
+                }
+            } else if (selectedGameMode === 'evolution') {
+                gameState.board[idx] = gameTurn;
+                let history = gameTurn === 'X' ? gameState.historyX : gameState.historyO;
+                history.push(idx);
+                if (history.length > 3) {
+                    const removedIdx = history.shift();
+                    gameState.board[removedIdx] = null;
+                }
+                if (checkWinnerClassic(gameState.board)) {
+                    gameState.winner = gameTurn;
+                    playSound('win');
+                } else {
+                    gameTurn = gameTurn === 'X' ? 'O' : 'X';
+                }
+            }
+
+            renderGame();
+            if (isMultiplayer) sendState();
+
+            if (isVsAI && !gameState.winner && gameTurn === 'O') {
+                setTimeout(makeAIMove, 450);
+            }
+        }
+
+        function handleUltimateClick(bIdx, cIdx) {
+            if (gameState.winner) return;
+            if (isMultiplayer && gameTurn !== myPlayerRole) return;
+            if (isVsAI && gameTurn === 'O') return;
+            
+            if (gameState.activeBoard !== -1 && gameState.activeBoard !== bIdx) return;
+            if (gameState.boardWinners[bIdx] !== null) return;
+            if (gameState.boards[bIdx][cIdx] !== null) return;
+
+            executeUltimateMove(bIdx, cIdx);
+        }
+
+        function executeUltimateMove(bIdx, cIdx) {
+            playSound('click');
+            gameState.boards[bIdx][cIdx] = gameTurn;
+
+            if (checkWinnerClassic(gameState.boards[bIdx])) {
+                gameState.boardWinners[bIdx] = gameTurn;
+            } else if (gameState.boards[bIdx].every(c => c !== null)) {
+                gameState.boardWinners[bIdx] = 'Remis';
+            }
+
+            if (gameState.boardWinners[cIdx] !== null || gameState.boards[cIdx].every(c => c !== null)) {
+                gameState.activeBoard = -1;
+            } else {
+                gameState.activeBoard = cIdx;
+            }
+
+            if (checkWinnerClassic(gameState.boardWinners)) {
+                gameState.winner = gameTurn;
+                playSound('win');
+            } else if (gameState.boardWinners.every(b => b !== null)) {
+                gameState.winner = 'Remis';
+            } else {
+                gameTurn = gameTurn === 'X' ? 'O' : 'X';
+            }
+
+            renderGame();
+            if (isMultiplayer) sendState();
+
+            if (isVsAI && !gameState.winner && gameTurn === 'O') {
+                setTimeout(makeAIMove, 450);
+            }
+        }
+
+        function checkWinnerClassic(b) {
+            const wins = [
+                [0,1,2], [3,4,5], [6,7,8],
+                [0,3,6], [1,4,7], [2,5,8],
+                [0,4,8], [2,4,6]
+            ];
+            return wins.some(w => b[w[0]] && b[w[0]] === b[w[1]] && b[w[0]] === b[w[2]]);
+        }
+
+        function makeAIMove() {
+            if (gameState.winner) return;
+
+            if (selectedGameMode === 'classic' || selectedGameMode === 'evolution') {
+                let emptyIndices = gameState.board.map((v, i) => v === null ? i : null).filter(v => v !== null);
+                if (emptyIndices.length === 0) return;
+
+                let chosenIdx = -1;
+                if (aiDifficulty === 'easy') {
+                    chosenIdx = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+                } else if (aiDifficulty === 'medium') {
+                    chosenIdx = findBestBasicMove(gameState.board, 'O') ?? findBestBasicMove(gameState.board, 'X') ?? emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+                } else {
+                    chosenIdx = findBestMinimaxMove(gameState.board);
+                }
+                executeMove(chosenIdx);
+            } 
+            else if (selectedGameMode === 'ultimate') {
+                let validMoves = [];
+                let boardsToCheck = gameState.activeBoard === -1 ? [0,1,2,3,4,5,6,7,8] : [gameState.activeBoard];
+
+                boardsToCheck.forEach(bIdx => {
+                    if (gameState.boardWinners[bIdx] === null) {
+                        gameState.boards[bIdx].forEach((cell, cIdx) => {
+                            if (cell === null) validMoves.push({b: bIdx, c: cIdx});
+                        });
+                    }
+                });
+
+                if (validMoves.length === 0) return;
+                let move = validMoves[Math.floor(Math.random() * validMoves.length)];
+
+                if (aiDifficulty !== 'easy') {
+                    for (let m of validMoves) {
+                        let tempB = [...gameState.boards[m.b]];
+                        tempB[m.c] = 'O';
+                        if (checkWinnerClassic(tempB)) { move = m; break; }
+                    }
+                }
+                executeUltimateMove(move.b, move.c);
+            }
+        }
+
+        function findBestBasicMove(board, player) {
+            const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+            for (let w of wins) {
+                let line = [board[w[0]], board[w[1]], board[w[2]]];
+                if (line.filter(v => v === player).length === 2 && line.includes(null)) {
+                    return w[line.indexOf(null)];
+                }
+            }
+            return null;
+        }
+
+        function findBestMinimaxMove(board) {
+            let bestScore = -Infinity;
+            let bestMove = null;
+            board.forEach((val, idx) => {
+                if (val === null) {
+                    board[idx] = 'O';
+                    let score = minimax(board, 0, false);
+                    board[idx] = null;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMove = idx;
+                    }
+                }
+            });
+            return bestMove;
+        }
+
+        function minimax(board, depth, isMaximizing) {
+            if (checkWinnerClassic(board)) return isMaximizing ? -10 + depth : 10 - depth;
+            if (board.every(c => c !== null)) return 0;
+
+            if (isMaximizing) {
+                let maxEval = -Infinity;
+                board.forEach((val, idx) => {
+                    if (val === null) {
+                        board[idx] = 'O';
+                        let eval = minimax(board, depth + 1, false);
+                        board[idx] = null;
+                        maxEval = Math.max(maxEval, eval);
+                    }
+                });
+                return maxEval;
+            } else {
+                let minEval = Infinity;
+                board.forEach((val, idx) => {
+                    if (val === null) {
+                        board[idx] = 'X';
+                        let eval = minimax(board, depth + 1, true);
+                        board[idx] = null;
+                        minEval = Math.min(minEval, eval);
+                    }
+                });
+                return minEval;
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('p1-text').innerText = gameNames['X'];
+            document.getElementById('p2-text').innerText = gameNames['O'];
+
+            let statusText = "";
+            const restartBtn = document.getElementById('restart-btn');
+
+            if (gameState.winner) {
+                if (gameState.winner === 'Remis') {
+                    statusText = "🤝 Unentschieden (Remis)!";
+                } else {
+                    statusText = `🏆 Gewinner: ${gameNames[gameState.winner]} 🎉`;
+                }
+                restartBtn.style.display = 'block';
+            } else {
+                restartBtn.style.display = 'none';
+                if (isMultiplayer) {
+                    statusText = gameTurn === myPlayerRole ? "🟢 DU bist am Zug!" : `⏳ ${gameNames[gameTurn]} ist am Zug...`;
+                } else {
+                    statusText = `${gameNames[gameTurn]} ist am Zug`;
+                }
+            }
+            document.getElementById('turn-indicator').innerText = statusText;
+        }
+    </script>
+</body>
+</html>
