@@ -314,7 +314,6 @@
             font-size: 0.85rem;
         }
 
-        /* Chat-Nachricht platziert sich direkt über dem Eingabebereich */
         #chat-bubble {
             background: rgba(28, 17, 48, 0.95);
             border: 2px solid var(--accent-gold);
@@ -382,6 +381,8 @@
                 <button class="btn" onclick="startHosting()">Raum erstellen & Link kopieren</button>
                 <p id="host-status" style="font-size: 0.8rem; color: var(--accent-gold);"></p>
                 <p id="room-link-display" style="font-size: 0.75rem; color: var(--text-main); word-break: break-all; background: #120a1f; padding: 6px; border-radius: 6px;"></p>
+                <!-- Neuer Teilen-Button -->
+                <button id="share-link-btn" class="btn btn-secondary" style="display:none; padding: 8px; font-size: 0.85rem;" onclick="shareGameLink()">📤 Link teilen (WhatsApp etc.)</button>
                 
                 <hr style="border: 0; border-top: 1px solid #332159; margin: 4px 0;">
                 
@@ -415,7 +416,7 @@
             Am Zug
         </div>
 
-        <!-- CHAT BEREICH (Chat-Nachricht direkt über den Eingabefeldern) -->
+        <!-- CHAT BEREICH -->
         <div id="chat-section" class="chat-container">
             <div id="chat-bubble">Nachricht...</div>
             <div class="emoji-row">
@@ -448,6 +449,7 @@
         let gameNames = { 'X': 'Stefan', 'O': 'Gegner' };
         let gameState = {};
         let audioCtx = null;
+        let generatedGameLink = "";
 
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -559,12 +561,13 @@
                     ? window.location.origin + window.location.pathname 
                     : webBaseUrl;
 
-                const fullLink = baseUrl + '?room=' + FIXED_ROOM_CODE + '&mode=' + selectedGameMode;
+                generatedGameLink = baseUrl + '?room=' + FIXED_ROOM_CODE + '&mode=' + selectedGameMode;
                 
-                document.getElementById('room-link-display').innerText = fullLink;
+                document.getElementById('room-link-display').innerText = generatedGameLink;
                 document.getElementById('host-status').innerText = 'Warte auf Mitspieler im Raum: ' + FIXED_ROOM_CODE;
+                document.getElementById('share-link-btn').style.display = 'block';
                 
-                navigator.clipboard.writeText(fullLink).then(() => {
+                navigator.clipboard.writeText(generatedGameLink).then(() => {
                     alert('Einladungs-Link kopiert! Kann direkt verschickt werden.');
                 }).catch(() => {});
             });
@@ -582,6 +585,21 @@
                     startGameInstance();
                 });
             });
+        }
+
+        function shareGameLink() {
+            if (!generatedGameLink) return;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Tic-Tac-Toe Duell',
+                    text: 'Komm in meinen Tic-Tac-Toe Raum und spiele gegen mich!',
+                    url: generatedGameLink
+                }).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(generatedGameLink).then(() => {
+                    alert('Link in die Zwischenablage kopiert!');
+                });
+            }
         }
 
         function joinGame() {
